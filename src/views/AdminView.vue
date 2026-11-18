@@ -90,7 +90,7 @@ onBeforeUnmount(() => clearInterval(timer))
 <template>
   <div v-if="!loggedIn" class="card login">
     <h1>Panou date</h1>
-    <p class="sub">Introdu parola (ADMIN_KEY din Apps Script).</p>
+    <p class="sub">Introdu parola.</p>
     <form @submit.prevent="load">
       <input v-model="key" type="password" placeholder="Parola" autocomplete="current-password" />
       <div class="row" style="margin-top: 12px">
