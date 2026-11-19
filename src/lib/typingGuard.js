@@ -8,6 +8,11 @@
 const MAX_CHARS_AT_ONCE = 30 // un cuvânt lung din sugestiile tastaturii de pe telefon încape
 const MIN_INPUTS_PER_CHAR = 1 / 15 // cel puțin un eveniment de tastare la 15 caractere
 
+// Viteza de scris: un om care tastează repede ajunge la ~5–8 caractere/secundă.
+// Peste 15/s în medie, pe un text mai lung, nu e tastat de mână.
+const MAX_CHARS_PER_SECOND = 15
+const MIN_CHARS_FOR_SPEED_CHECK = 40
+
 const PASTE_TYPES = new Set(['insertFromPaste', 'insertFromPasteAsQuotation', 'insertFromDrop', 'insertFromYank'])
 
 /**
@@ -17,6 +22,8 @@ const PASTE_TYPES = new Set(['insertFromPaste', 'insertFromPasteAsQuotation', 'i
 export function useTypingGuard(textRef, onBlocked) {
   let inputs = 0
   let last = textRef.value || ''
+  let firstAt = null // primul caracter tastat
+  let lastAt = null // ultimul caracter tastat
 
   function onBeforeInput(e) {
     if (PASTE_TYPES.has(e.inputType)) {
@@ -34,8 +41,35 @@ export function useTypingGuard(textRef, onBlocked) {
       return
     }
     inputs++
+    if (added > 0) {
+      const now = Date.now()
+      if (firstAt == null) firstAt = now
+      lastAt = now
+    }
     last = value
     textRef.value = value
+  }
+
+  /** Caractere pe secundă, de la primul la ultimul caracter tastat (null dacă e prea puțin text). */
+  function charsPerSecond() {
+    const len = (textRef.value || '').trim().length
+    if (firstAt == null || len < MIN_CHARS_FOR_SPEED_CHECK) return null
+    const seconds = Math.max(0.5, (lastAt - firstAt) / 1000)
+    return Math.round((len / seconds) * 10) / 10
+  }
+
+  /** A scris neomenește de repede? */
+  function tooFast() {
+    const cps = charsPerSecond()
+    return cps != null && cps > MAX_CHARS_PER_SECOND
+  }
+
+  /** Golește câmpul și repornește măsurătorile (după un text respins). */
+  function reset() {
+    inputs = 0
+    last = ''
+    firstAt = lastAt = null
+    textRef.value = ''
   }
 
   /** La „Verifică”: textul a fost chiar tastat? (altfel a apărut „din senin” — ex. scris din consolă) */
@@ -44,5 +78,5 @@ export function useTypingGuard(textRef, onBlocked) {
     return len < 20 || inputs >= len * MIN_INPUTS_PER_CHAR
   }
 
-  return { onBeforeInput, onInput, typedByHand }
+  return { onBeforeInput, onInput, typedByHand, charsPerSecond, tooFast, reset }
 }

@@ -52,7 +52,13 @@ function check() {
     notice.value = 'Textul trebuie scris de mână, de la tastatură.'
     return
   }
-  const r = s.submitFinal(text.value)
+  if (!devFilled && guard.tooFast()) {
+    s.recordPaste('too_fast', guard.charsPerSecond())
+    guard.reset()
+    notice.value = 'Ai scris neobișnuit de repede. Scrie din nou, în ritmul tău.'
+    return
+  }
+  const r = s.submitFinal(text.value, { cps: guard.charsPerSecond() })
   result.value = r
   if (r.unchanged) notice.value = 'Ai verificat deja textul ăsta — corectează-l întâi.'
   if (r.passed) {

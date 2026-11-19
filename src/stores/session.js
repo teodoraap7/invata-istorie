@@ -258,10 +258,14 @@ export const useSessionStore = defineStore('session', () => {
     log(step.value.kind === 'final' ? 'final_show' : 'show', { ms, ...(chunkIndex != null ? { chunk: chunkIndex } : {}) })
   }
 
-  /** reason: 'paste' (lipire), 'jump' (mult text apărut deodată), 'not_typed' (text care n-a fost tastat) */
+  /**
+   * reason: 'paste' (lipire), 'jump' (mult text apărut deodată), 'not_typed' (text care n-a fost tastat),
+   *         'too_fast' (scris neomenește de repede; `chars` = caractere pe secundă)
+   */
   function recordPaste(reason = 'paste', chars = null) {
     cur.value.pastes++
-    log(reason === 'not_typed' ? 'not_typed' : 'paste_blocked', { reason, ...(chars != null ? { chars } : {}) })
+    const type = { not_typed: 'not_typed', too_fast: 'typed_too_fast' }[reason] || 'paste_blocked'
+    log(type, { reason, ...(chars != null ? { chars } : {}) })
   }
 
   /** Prima tastă apăsată în pas = cât a stat până a început să scrie. */
@@ -298,7 +302,8 @@ export const useSessionStore = defineStore('session', () => {
     return null
   }
 
-  function submitText(text) {
+  /** `meta.cps`: viteza de scris (caractere/secundă), ajunge în date la fiecare verificare. */
+  function submitText(text, meta = {}) {
     const repeated = sameAsLast(text)
     if (repeated) return { ...repeated, unchanged: true }
     const kind = step.value.kind
@@ -306,7 +311,7 @@ export const useSessionStore = defineStore('session', () => {
     cur.value.lastResult = r
     cur.value.attempts++
     cur.value.accuracy.push(r.accuracy)
-    log(`${kind}_check`, { accuracy: r.accuracy, missing: r.missing, extras: r.extras })
+    log(`${kind}_check`, { accuracy: r.accuracy, missing: r.missing, extras: r.extras, ...(meta.cps ? { cps: meta.cps } : {}) })
     if (r.passed) completeWrite()
     return r
   }
@@ -387,7 +392,7 @@ export const useSessionStore = defineStore('session', () => {
     return chunkOfWord(Math.max(0, r.stuckIndex))
   }
 
-  function submitFinal(text) {
+  function submitFinal(text, meta = {}) {
     const repeated = sameAsLast(text)
     if (repeated) return { ...repeated, unchanged: true }
     const r = { ...compareText(fullText.value, text, PASS_THRESHOLD, allGroups.value) }
@@ -396,7 +401,7 @@ export const useSessionStore = defineStore('session', () => {
     const c = cur.value
     c.attempts++
     c.accuracy.push(r.accuracy)
-    log('final_check', { accuracy: r.accuracy, missing: r.missing })
+    log('final_check', { accuracy: r.accuracy, missing: r.missing, ...(meta.cps ? { cps: meta.cps } : {}) })
     if (r.passed) {
       run.value.final = {
         ms: elapsed(),

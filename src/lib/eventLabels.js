@@ -20,6 +20,7 @@ export const EVENT_LABELS = {
   again_ok: 'A rescris-o din memorie',
   paste_blocked: 'A încercat să lipească text (blocat)',
   not_typed: '⚠️ Text apărut fără să fie tastat (respins)',
+  typed_too_fast: '⚠️ Scris neomenește de repede (respins)',
   away_start: 'A ieșit din aplicație',
   away_end: 'S-a întors în aplicație',
   fast_on: 'Mod rapid pornit (merge bine)',
@@ -46,6 +47,8 @@ export function eventDetail(e) {
   if (e.ms != null) parts.push(formatDuration(e.ms))
   if (e.firstTry) parts.push('din prima')
   if (e.reason === 'jump') parts.push(`${e.chars} caractere apărute deodată`)
+  if (e.reason === 'too_fast') parts.push(`${e.chars} caractere/secundă`)
+  if (e.cps) parts.push(`${Math.round(e.cps * 60)} caractere/min`)
   if (e.round) parts.push(`runda ${e.round}${e.of ? ` din ${e.of}` : ''}`)
   return parts.join(' · ')
 }
