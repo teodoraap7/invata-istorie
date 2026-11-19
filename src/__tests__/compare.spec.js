@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { compareText, checkAnswer, normalize, splitSentences, romanToNumber } from '../lib/compare'
+import { compareText, checkAnswer, normalize, splitSentences, romanToNumber, parseEnumeration } from '../lib/compare'
+import { prepareLesson } from '../lib/lessons'
 
 const TEXT = 'La 24 ianuarie 1859, Adunarea Electivă a Țării Românești l-a ales tot pe Cuza.'
 
@@ -133,5 +134,43 @@ describe('cifre romane', () => {
   it('la întrebări acceptă secolul scris oricum', () => {
     expect(checkAnswer('secolul XVIII', 'secolul 18')).toBe(true)
     expect(checkAnswer('secolul XVIII', 'secolul xvii')).toBe(false)
+  })
+})
+
+describe('enumerări în orice ordine', () => {
+  const lesson = prepareLesson({
+    chunks: ['Este un regim [social, politic, economic și cultural] impus de Imperiul Otoman.'],
+  })
+  const T = lesson.chunks[0]
+  const G = lesson.groups[0]
+
+  it('scoate parantezele din text', () => {
+    expect(T).toBe('Este un regim social, politic, economic și cultural impus de Imperiul Otoman.')
+    expect(parseEnumeration('social, politic, economic și cultural').items).toHaveLength(4)
+  })
+
+  it('acceptă elementele în altă ordine', () => {
+    const r = compareText(T, 'Este un regim cultural, social, economic si politic impus de Imperiul Otoman', 90, G)
+    expect(r.passed).toBe(true)
+    expect(r.accuracy).toBe(100)
+  })
+
+  it('acceptă altă ordine și cu o greșeală de tastare', () => {
+    expect(compareText(T, 'Este un regim cultural, economic, politic si socal impus de Imperiul Otoman', 90, G).passed).toBe(true)
+  })
+
+  it('fără marcaj [ ], ordinea contează', () => {
+    expect(compareText(T, 'Este un regim cultural, social, economic si politic impus de Imperiul Otoman').passed).toBe(false)
+  })
+
+  it('un element lipsă tot lipsește', () => {
+    const r = compareText(T, 'Este un regim cultural, social si politic impus de Imperiul Otoman', 90, G)
+    expect(r.missing).toBe(1)
+  })
+
+  it('elemente din mai multe cuvinte', () => {
+    const l = prepareLesson({ chunks: ['[Încălcarea autonomiei, grecizarea domniei, instabilitate la tron, fiscalitate excesivă].'] })
+    const r = compareText(l.chunks[0], 'fiscalitate excesiva, instabilitate la tron, incalcarea autonomiei, grecizarea domniei', 90, l.groups[0])
+    expect(r.passed).toBe(true)
   })
 })

@@ -2,7 +2,7 @@
 // ajutoare cerute și jurnalul complet de evenimente (care ajunge la tine).
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { compareText, wordCount, checkAnswer } from '@/lib/compare'
+import { compareText, wordCount, checkAnswer, PASS_THRESHOLD } from '@/lib/compare'
 import { buildQuiz, relatedChunk } from '@/lib/quiz'
 import { saveRun } from '@/lib/api'
 
@@ -63,6 +63,9 @@ export const useSessionStore = defineStore('session', () => {
     step.value?.chunk != null ? lesson.value.chunks[step.value.chunk] : '',
   )
   const fullText = computed(() => (lesson.value ? lesson.value.chunks.join(' ') : ''))
+  // enumerările care se pot scrie în orice ordine (din parantezele [ ] ale lecției)
+  const chunkGroups = computed(() => (step.value?.chunk != null ? lesson.value.groups?.[step.value.chunk] || [] : []))
+  const allGroups = computed(() => (lesson.value?.groups || []).flat())
   const currentQuestion = computed(() => quiz.value[quizIndex.value] ?? null)
   const progress = computed(() => {
     const total = queue.value.length - 1
@@ -298,7 +301,7 @@ export const useSessionStore = defineStore('session', () => {
     const repeated = sameAsLast(text)
     if (repeated) return { ...repeated, unchanged: true }
     const kind = step.value.kind
-    const r = compareText(chunkText.value, text)
+    const r = compareText(chunkText.value, text, PASS_THRESHOLD, chunkGroups.value)
     cur.value.lastResult = r
     cur.value.attempts++
     cur.value.accuracy.push(r.accuracy)
@@ -379,14 +382,14 @@ export const useSessionStore = defineStore('session', () => {
   /* ---------- recapitularea întregii lecții ---------- */
   /** La ce bucată s-a blocat (pentru „Arată-mi / Ascultă unde m-am blocat”). */
   function stuckChunk(text) {
-    const r = compareText(fullText.value, text)
+    const r = compareText(fullText.value, text, PASS_THRESHOLD, allGroups.value)
     return chunkOfWord(Math.max(0, r.stuckIndex))
   }
 
   function submitFinal(text) {
     const repeated = sameAsLast(text)
     if (repeated) return { ...repeated, unchanged: true }
-    const r = { ...compareText(fullText.value, text) }
+    const r = { ...compareText(fullText.value, text, PASS_THRESHOLD, allGroups.value) }
     r.stuckChunk = chunkOfWord(Math.max(0, r.stuckIndex))
     cur.value.lastResult = r
     const c = cur.value

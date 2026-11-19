@@ -105,9 +105,9 @@ export function sameWord(a, b) {
  *            (niciun an lipsă și niciun an în plus)
  *  - firstMissingIndex: poziția primului cuvânt lipsă din original (-1 dacă nu lipsește nimic)
  */
-export function compareText(target, typed, threshold = PASS_THRESHOLD) {
+export function compareText(target, typed, threshold = PASS_THRESHOLD, groups = []) {
   const T = tokenize(target, true)
-  const U = tokenize(typed)
+  const U = reorderEnumerations(tokenize(typed), groups)
   const n = T.length
   const m = U.length
 
@@ -161,6 +161,81 @@ export function compareText(target, typed, threshold = PASS_THRESHOLD) {
     firstMissingIndex,
     stuckIndex: firstMissingIndex >= 0 ? firstMissingIndex : firstExtraNear,
   }
+}
+
+/* ---------------- enumerări în orice ordine ---------------- */
+
+const CONNECTORS = new Set(['si', 'sau', 'iar'])
+
+/**
+ * Din textul unei enumerări („social, politic, economic și cultural”) face lista de elemente,
+ * fiecare ca listă de cuvinte, plus legătura dinaintea ultimului element („și”).
+ */
+export function parseEnumeration(text) {
+  const parts = String(text)
+    .split(/\s*,\s*|\s+(?=(?:și|si|sau)\s)/i)
+    .map((p) => p.replace(/^(și|si|sau)\s+/i, '').trim())
+    .filter(Boolean)
+  const last = String(text).match(/\s(și|si|sau)\s+[^,]+$/i)
+  return {
+    items: parts.map((p) => tokenize(p, true)),
+    connector: last ? tokenize(last[1])[0] : null,
+  }
+}
+
+/** Cuvintele elementului `item` se potrivesc în U începând cu poziția `pos`? Întoarce poziția de după. */
+function matchItemAt(U, pos, item) {
+  if (pos + item.length > U.length) return -1
+  for (let k = 0; k < item.length; k++) if (!tokensMatch(item[k], U[pos + k])) return -1
+  return pos + item.length
+}
+
+/**
+ * Dacă elevul a scris elementele unei enumerări în altă ordine, le rearanjează în ordinea din
+ * text (păstrând exact ce a scris el în fiecare element, cu tot cu greșeli), ca restul
+ * comparației să le vadă „la locul lor”. Ce lipsește rămâne lipsă.
+ */
+export function reorderEnumerations(U, groups = []) {
+  let out = U.slice()
+  for (const g of groups) {
+    const { items, connector } = g.items ? g : parseEnumeration(g)
+    if (items.length < 2) continue
+    for (let p = 0; p < out.length; p++) {
+      const found = [] // { k, from, to }
+      const used = new Set()
+      let pos = p
+      let typedConnector = false // a scris elevul „și/sau” între elemente?
+      for (;;) {
+        let at = pos
+        if (found.length)
+          while (at < out.length && CONNECTORS.has(out[at].norm)) {
+            at++
+            typedConnector = true
+          }
+        let hit = null
+        for (let k = 0; k < items.length && !hit; k++) {
+          if (used.has(k)) continue
+          const end = matchItemAt(out, at, items[k])
+          if (end > 0) hit = { k, from: at, to: end }
+        }
+        if (!hit) break
+        found.push(hit)
+        used.add(hit.k)
+        pos = hit.to
+      }
+      if (found.length < 2) continue
+      const sorted = [...found].sort((a, b) => a.k - b.k)
+      const rebuilt = []
+      sorted.forEach((f, idx) => {
+        // legătura („și”) o punem înaintea ultimului element, doar dacă a scris-o și elevul
+        if (idx === sorted.length - 1 && idx > 0 && connector && typedConnector) rebuilt.push(connector)
+        rebuilt.push(...out.slice(f.from, f.to))
+      })
+      out = [...out.slice(0, p), ...rebuilt, ...out.slice(pos)]
+      break // o enumerare se găsește o singură dată
+    }
+  }
+  return out
 }
 
 /**
