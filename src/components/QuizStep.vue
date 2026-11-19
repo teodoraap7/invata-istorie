@@ -2,6 +2,7 @@
 // O întrebare. La răspuns greșit arătăm răspunsul corect și bucata de recitit.
 import { ref, onMounted } from 'vue'
 import { useSessionStore } from '@/stores/session'
+import { useTypingGuard } from '@/lib/typingGuard'
 // mod de test: doar cu npm run dev (în build-ul publicat codul e scos complet)
 const DEV_TOOLS = import.meta.env.DEV
 
@@ -11,6 +12,7 @@ const answer = ref('')
 const feedback = ref(null)
 const input = ref(null)
 const nextBtn = ref(null)
+const guard = useTypingGuard(answer, (reason, chars) => s.recordPaste(reason, chars))
 
 function submit() {
   if (feedback.value || !answer.value.trim()) return
@@ -29,7 +31,9 @@ onMounted(() => input.value?.focus())
     <div class="question">{{ q.q }}</div>
     <input
       ref="input"
-      v-model="answer"
+      :value="answer"
+      @beforeinput="guard.onBeforeInput"
+      @input="guard.onInput"
       type="text"
       placeholder="Răspunsul tău"
       autocomplete="off"

@@ -18,7 +18,8 @@ export const EVENT_LABELS = {
   listen: 'A cerut să ASCULTE textul',
   again_added: 'Programată încă o rundă de scris din memorie',
   again_ok: 'A rescris-o din memorie',
-  paste_blocked: 'A încercat să lipească text',
+  paste_blocked: 'A încercat să lipească text (blocat)',
+  not_typed: '⚠️ Text apărut fără să fie tastat (respins)',
   away_start: 'A ieșit din aplicație',
   away_end: 'S-a întors în aplicație',
   fast_on: 'Mod rapid pornit (merge bine)',
@@ -44,6 +45,7 @@ export function eventDetail(e) {
   if (e.type === 'quiz_answer') parts.push(e.correct ? 'corect' : 'greșit')
   if (e.ms != null) parts.push(formatDuration(e.ms))
   if (e.firstTry) parts.push('din prima')
+  if (e.reason === 'jump') parts.push(`${e.chars} caractere apărute deodată`)
   if (e.round) parts.push(`runda ${e.round}${e.of ? ` din ${e.of}` : ''}`)
   return parts.join(' · ')
 }

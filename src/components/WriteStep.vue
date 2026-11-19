@@ -7,6 +7,7 @@ import { speakSentences, stopSpeaking, canSpeak } from '@/lib/speech'
 import { showDuration } from '@/lib/format'
 import DiffView from './DiffView.vue'
 import ShowOverlay from './ShowOverlay.vue'
+import { useTypingGuard } from '@/lib/typingGuard'
 // mod de test: doar cu npm run dev (în build-ul publicat codul e scos complet)
 const DEV_TOOLS = import.meta.env.DEV
 
@@ -30,14 +31,28 @@ function onKeydown(e) {
     check()
   }
 }
+const PASTE_MSG = 'Lipirea textului e dezactivată — scrie de mână. 🙂'
 function onPaste(e) {
   e.preventDefault()
-  s.recordPaste()
-  notice.value = 'Lipirea textului e dezactivată — scrie de mână. 🙂'
+  s.recordPaste('paste')
+  notice.value = PASTE_MSG
 }
+const guard = useTypingGuard(text, (reason, chars) => {
+  s.recordPaste(reason, chars)
+  notice.value = PASTE_MSG
+})
 function check() {
-  if (success.value || !text.value.trim()) return
+  if (success.value) return
+  // text pus în câmp pe ocolite (din consolă), fără evenimente de tastare
+  const inField = input.value?.value ?? text.value
+  const sneaked = inField.trim() && inField !== text.value
+  if (!sneaked && !text.value.trim()) return
   notice.value = ''
+  if (sneaked || (!devFilled && !guard.typedByHand())) {
+    s.recordPaste('not_typed', text.value.length)
+    notice.value = 'Textul trebuie scris de mână, de la tastatură.'
+    return
+  }
   const r = s.submitText(text.value)
   result.value = r
   if (r.unchanged) notice.value = 'Ai verificat deja textul ăsta — corectează-l întâi.'
@@ -76,7 +91,9 @@ function devFill(withMistake = false) {
   const words = s.chunkText.split(' ')
   if (withMistake) words.splice(Math.floor(words.length / 2), 2)
   text.value = words.join(' ')
+  devFilled = true
 }
+let devFilled = false
 
 onMounted(() => input.value?.focus())
 onBeforeUnmount(stopSpeaking)
@@ -94,7 +111,9 @@ onBeforeUnmount(stopSpeaking)
 
     <textarea
       ref="input"
-      v-model="text"
+      :value="text"
+      @beforeinput="guard.onBeforeInput"
+      @input="guard.onInput"
       placeholder="Scrie aici…"
       spellcheck="false"
       autocomplete="off"

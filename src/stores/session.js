@@ -258,9 +258,10 @@ export const useSessionStore = defineStore('session', () => {
     log(step.value.kind === 'final' ? 'final_show' : 'show', { ms, ...(chunkIndex != null ? { chunk: chunkIndex } : {}) })
   }
 
-  function recordPaste() {
+  /** reason: 'paste' (lipire), 'jump' (mult text apărut deodată), 'not_typed' (text care n-a fost tastat) */
+  function recordPaste(reason = 'paste', chars = null) {
     cur.value.pastes++
-    log('paste_blocked')
+    log(reason === 'not_typed' ? 'not_typed' : 'paste_blocked', { reason, ...(chars != null ? { chars } : {}) })
   }
 
   /** Prima tastă apăsată în pas = cât a stat până a început să scrie. */
